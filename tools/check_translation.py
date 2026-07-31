@@ -56,7 +56,8 @@ def norm_math(expr):
 
 def check(rel, src, dst):
     issues = []
-    o, t = src.read_text(), dst.read_text()
+    # \$ is an escaped dollar sign (prices in the text), not a math delimiter.
+    o, t = src.read_text().replace(r"\$", "¤"), dst.read_text().replace(r"\$", "¤")
     o_prose, o_code = split_code(o)
     t_prose, t_code = split_code(t)
 
@@ -93,10 +94,11 @@ def check(rel, src, dst):
             if la != lb or not same:
                 issues.append(f"code block {i} modified beyond comments")
 
-    for m in LATIN_RUN.finditer(t_prose):
-        issues.append(f"possibly untranslated: {m.group(0)!r}")
+    # Heuristic, not a rule: English term names (CSR, Gram-Schmidt) are kept on
+    # purpose, so these are surfaced for a human to glance at, never a failure.
+    notes = [f"latin run: {m.group(0)!r}" for m in LATIN_RUN.finditer(t_prose)]
 
-    return issues
+    return issues, notes
 
 
 def main():
@@ -113,7 +115,7 @@ def main():
         if dst.read_text() == src.read_text():
             print(f"-- {rel}: not translated yet")
             continue
-        issues = check(rel, src, dst)
+        issues, notes = check(rel, src, dst)
         if issues:
             bad += 1
             print(f"FAIL {rel}")
@@ -121,6 +123,8 @@ def main():
                 print(f"     - {i}")
         else:
             print(f"OK   {rel}")
+        for n in notes:
+            print(f"     ? {n}")
     print(f"\n{bad} file(s) with structural issues")
     return 1 if bad else 0
 
